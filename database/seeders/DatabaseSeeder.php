@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'vendedor@fruna.cl'],
             [
                 'name' => 'Benjamín Rivera',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make('contraseña123'),
             ]
         );
 

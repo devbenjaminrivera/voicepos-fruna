@@ -11,7 +11,7 @@
                 
                 <div class="mb-6 text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-2">Micrófono Activo</h3>
-                    <p class="text-sm text-gray-500 mb-4">Presiona "Iniciar Escucha" y dicta el pedido. Di la palabra <strong>"APARTE"</strong> para finalizar y procesar[cite: 24].</p>
+                    <p class="text-sm text-gray-500 mb-4">Presiona "Iniciar Escucha" y dicta el pedido. Di la palabra <strong>"APARTE"</strong> para finalizar y procesar.</p>
                     
                     <button id="btn-start" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300">
                         🎤 Iniciar Escucha
@@ -50,7 +50,6 @@
             }
 
             const recognition = new SpeechRecognition();
-            // Configuración estricta según documentación 
             recognition.continuous = true; 
             recognition.lang = 'es-CL';
             recognition.interimResults = true;
@@ -79,7 +78,7 @@
                 const textoActual = finalTranscript + interimTranscript;
                 transcriptArea.value = textoActual;
 
-                // Detección de palabra clave "APARTE" [cite: 7, 24]
+                
                 if (textoActual.toLowerCase().includes('aparte')) {
                     recognition.stop();
                 }

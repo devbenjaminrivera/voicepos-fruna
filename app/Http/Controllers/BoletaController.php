@@ -38,26 +38,42 @@ class BoletaController extends Controller
             'empresa_id' => 'required|exists:empresas,id'
         ]);
 
-        // Limpiamos el texto: a minúsculas y quitamos la palabra clave "aparte"
+        // Limpieza básica: a minúsculas, quitamos palabra clave y reemplazamos puntos/comas por espacios
         $textoRecibido = strtolower($request->texto_dictado);
         $textoRecibido = str_replace('aparte', '', $textoRecibido);
+        $textoRecibido = str_replace(['.', ',', ';'], ' ', $textoRecibido);
 
-        // Expresión regular para capturar el patrón: [Numero] [Palabra]
-        // Ej: "2 cocacolas" -> Cantidad: 2, Producto: "cocacolas"
-        preg_match_all('/(\d+)\s+([a-zñáéíóú]+)/i', $textoRecibido, $matches);
+        // 2. Mapeo inteligente: Convertir números en palabras a dígitos reales
+        $mapaNumeros = [
+            '/\b(un|una|uno)\b/' => '1',
+            '/\b(dos)\b/' => '2',
+            '/\b(tres)\b/' => '3',
+            '/\b(cuatro)\b/' => '4',
+            '/\b(cinco)\b/' => '5',
+            '/\b(seis)\b/' => '6',
+            '/\b(siete)\b/' => '7',
+            '/\b(ocho)\b/' => '8',
+            '/\b(nueve)\b/' => '9',
+            '/\b(diez)\b/' => '10',
+        ];
+        $textoRecibido = preg_replace(array_keys($mapaNumeros), array_values($mapaNumeros), $textoRecibido);
+
+        // 3. Expresión regular avanzada: 
+        // Captura (\d+) un número y luego todo el texto hasta encontrar el siguiente número o el final del string.
+        preg_match_all('/(\d+)\s*([a-zñáéíóú\s]+?)(?=\s*\d|$)/i', $textoRecibido, $matches);
 
         $itemsDictados = [];
         for ($i = 0; $i < count($matches[0]); $i++) {
             $itemsDictados[] = [
                 'cantidad' => (int) $matches[1][$i],
-                'palabra' => $matches[2][$i]
+                'palabra' => trim($matches[2][$i]) // trim() quita espacios sobrantes
             ];
         }
 
         try {
             DB::beginTransaction();
 
-            // 2. Creación de la boleta inicial con total 0
+            // Creación de la boleta inicial con total 0
             $boleta = Boleta::create([
                 'empresa_id' => $request->empresa_id,
                 'vendedor_id' => Auth::id(),
@@ -67,30 +83,31 @@ class BoletaController extends Controller
             $totalCalculado = 0;
             $productosDB = Producto::all();
 
-            // 3. Lógica de Fuzzy Matching (Distancia de Levenshtein)
+            // 4. Lógica de Similitud Porcentual (Blindaje)
             foreach ($itemsDictados as $item) {
+                if (empty($item['palabra'])) continue;
+
                 $mejorCoincidencia = null;
-                $menorDistancia = -1;
+                $mayorSimilitud = 0; // Ahora buscamos el mayor porcentaje, no la menor distancia
 
                 foreach ($productosDB as $producto) {
-                    // Comparamos la palabra dictada con el nombre del producto en BD
-                    $distancia = levenshtein($item['palabra'], strtolower($producto->nombre));
+                    $palabraDictadaLimpia = str_replace(' ', '', $item['palabra']);
+                    $nombreBDLimpio = strtolower(str_replace(' ', '', $producto->nombre));
+
+                    // similar_text guarda en la variable $porcentaje un valor del 0 al 100
+                    similar_text($palabraDictadaLimpia, $nombreBDLimpio, $porcentaje);
                     
-                    // Buscamos la palabra que requiera menos cambios
-                    if ($menorDistancia == -1 || $distancia < $menorDistancia) {
-                        $menorDistancia = $distancia;
+                    if ($porcentaje > $mayorSimilitud) {
+                        $mayorSimilitud = $porcentaje;
                         $mejorCoincidencia = $producto;
                     }
                 }
 
-                // Umbral de tolerancia: Si la distancia es aceptable (ej. máximo 4 letras distintas)
-                // Esto permite que "cocacola" coincida con "cocacolas" o "cereales" con "cereal"
-                if ($mejorCoincidencia && $menorDistancia <= 4) {
-                    // El cálculo matemático se hace estrictamente en el Backend
+                // Exigimos un mínimo del 75% de similitud para aceptar el producto
+                if ($mejorCoincidencia && $mayorSimilitud >= 75) {
                     $subtotal = $mejorCoincidencia->precio_unitario * $item['cantidad'];
                     $totalCalculado += $subtotal;
 
-                    // Insertamos en la tabla pivote
                     $boleta->productos()->attach($mejorCoincidencia->id, [
                         'cantidad' => $item['cantidad'],
                         'subtotal' => $subtotal
@@ -98,7 +115,7 @@ class BoletaController extends Controller
                 }
             }
 
-            // 4. Actualizamos el total real de la boleta
+            // Actualizamos el total real
             $boleta->update(['total' => $totalCalculado]);
 
             DB::commit();
@@ -114,29 +131,49 @@ class BoletaController extends Controller
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
-    // Genera y descarga la boleta en formato TXT
+    // Genera y descarga la boleta en formato TXT con diseño estricto
     public function downloadTxt(Boleta $boleta)
     {
         // Asegurarnos de cargar las relaciones necesarias
         $boleta->load(['vendedor', 'productos']);
 
-        // Armar el contenido del archivo de texto respetando la estructura obligatoria
-        $contenido = "FRUNA\r\n";
-        $contenido .= "Fecha: [" . $boleta->created_at->format('Y-m-d H:i') . "]\r\n";
-        $contenido .= "Vendedor: [" . $boleta->vendedor->name . "]\r\n";
+        // Definimos el ancho del ticket (ej. 56 caracteres)
+        $anchoTicket = 56;
+        $lineaPunteada = str_repeat('-', $anchoTicket) . "\r\n";
+
+        // Armar el encabezado
+        $contenido = $lineaPunteada;
+        $contenido .= "FRUNA\r\n";
+        $contenido .= "Fecha:    [" . $boleta->created_at->format('Y-m-d H:i') . "]\r\n";
+        $contenido .= "Vendedor: [" . $boleta->vendedor->name . "]\r\n\r\n";
+        
         $contenido .= "Detalle:\r\n";
         
+        // Armar el detalle de productos alineado
         foreach ($boleta->productos as $producto) {
-            $contenido .= "[" . $producto->nombre . "] x [" . $producto->pivot->cantidad . "]\r\n";
-            $contenido .= "$ [" . $producto->pivot->subtotal . "]\r\n";
+            $textoIzquierda = "[" . $producto->nombre . "] x [" . $producto->pivot->cantidad . "]";
+            $textoDerecha = "$ [" . $producto->pivot->subtotal . "]";
+            
+            // Calculamos cuánto espacio en blanco necesitamos para que el precio quede a la derecha
+            $espaciosFaltantes = $anchoTicket - strlen($textoDerecha);
+            
+            // Añadimos el producto, lo rellenamos con espacios hasta el margen, y pegamos el precio
+            $contenido .= str_pad($textoIzquierda, $espaciosFaltantes, " ", STR_PAD_RIGHT) . $textoDerecha . "\r\n";
         }
         
-        $contenido .= "TOTAL:\r\n";
-        $contenido .= "$ [" . $boleta->total . "]\r\n";
+        // Armar el pie del ticket con el total
+        $contenido .= "\r\n" . $lineaPunteada;
+        
+        $textoTotalIzquierda = "TOTAL:";
+        $textoTotalDerecha = "$ [" . $boleta->total . "]";
+        $espaciosFaltantesTotal = $anchoTicket - strlen($textoTotalDerecha);
+        
+        $contenido .= str_pad($textoTotalIzquierda, $espaciosFaltantesTotal, " ", STR_PAD_RIGHT) . $textoTotalDerecha . "\r\n";
+        $contenido .= $lineaPunteada;
 
         $nombreArchivo = 'boleta_fruna_N' . $boleta->id . '.txt';
 
-        // Retornar la respuesta forzando la descarga del archivo de texto
+        // Retornar la respuesta forzando la descarga del archivo
         return response($contenido)
             ->header('Content-Type', 'text/plain')
             ->header('Content-Disposition', 'attachment; filename="' . $nombreArchivo . '"');

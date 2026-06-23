@@ -13,17 +13,36 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        <style>
+            .login-bg {
+                background-image: url('{{ asset("img/fondo.jpg") }}');
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+            }
+            .login-overlay {
+                background-color: rgba(0, 0, 0, 0.45);
+            }
+        </style>
     </head>
     <body class="font-sans text-gray-900 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
-            <div>
-                <a href="/">
-                    <x-application-logo class="w-20 h-20 fill-current text-gray-500" />
-                </a>
-            </div>
+        <div class="login-bg min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0">
+            <div class="login-overlay absolute inset-0"></div>
 
-            <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white shadow-md overflow-hidden sm:rounded-lg">
-                {{ $slot }}
+            <div class="relative z-10 flex flex-col items-center w-full">
+                <div class="mb-4">
+                    <a href="/">
+                        <img src="{{ asset('img/logo-fruna.png') }}"
+                             alt="VoicePOS Fruna"
+                             class="object-contain"
+                             style="width: auto; height: auto; max-width: 200px; max-height: 120px;">
+                    </a>
+                </div>
+
+                <div class="w-full sm:max-w-md px-6 py-6 bg-white bg-opacity-95 shadow-lg overflow-hidden sm:rounded-lg">
+                    {{ $slot }}
+                </div>
             </div>
         </div>
     </body>
