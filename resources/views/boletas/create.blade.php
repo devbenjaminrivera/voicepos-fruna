@@ -41,7 +41,6 @@
             const transcriptArea = document.getElementById('transcript');
             const empresaId = document.getElementById('empresa_id').value;
 
-            // Verificamos soporte de la API
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             
             if (!SpeechRecognition) {
@@ -110,7 +109,6 @@
                 recognition.stop();
             });
 
-            // Envío por fetch al backend [cite: 25]
             function enviarPedidoBackend(texto) {
                 Swal.fire({
                     title: 'Procesando...',

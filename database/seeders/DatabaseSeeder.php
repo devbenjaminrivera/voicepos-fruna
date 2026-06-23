@@ -12,7 +12,6 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Crear Vendedor solo si no existe
         User::firstOrCreate(
             ['email' => 'vendedor@fruna.cl'],
             [
@@ -21,13 +20,13 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 2. Crear Empresa Fruna solo si no existe
+    
         Empresa::firstOrCreate(
             ['rut' => '77.777.777-7'],
             ['nombre' => 'Fruna']
         );
 
-        // 3. Sembrar el Catálogo de Productos sin duplicar
+        
         $productos = [
             ['nombre' => 'Cocacola', 'precio_unitario' => 800],
             ['nombre' => 'Cereales', 'precio_unitario' => 1200],

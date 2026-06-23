@@ -1,12 +1,12 @@
-# VoicePOS - Fruna 🎙️🛒
+# VoicePOS - Fruna 
 
 Sistema de Punto de Venta (POS) operado por comandos de voz, diseñado para agilizar la toma de pedidos en el mesón de atención. El sistema procesa dictados en tiempo real, filtra imprecisiones mediante algoritmos de procesamiento de lenguaje natural y emite boletas estructuradas.
 
-Desarrollado por **Benjamín Rivera Araneda** como proyecto aplicativo para la carrera de Ingeniería civil informática (UnACh).
+Desarrollado por **Benjamín Rivera Araneda** como proyecto aplicativo para la asignatura de Electivo Profesional I (Programación Web con Laravel).
 
 ---
 
-## 🚀 Características Principales
+## Características Principales
 
 * **Dictado por Voz en Tiempo Real:** Integración con Web Speech API para capturar y transcribir los pedidos del cliente directamente desde el micrófono.
 * **Procesamiento Inteligente (NLP):** Utiliza un algoritmo de similitud porcentual (PHP `similar_text()`) con un umbral estricto del 75% para corregir errores tipográficos de dictado (ej. "babas fritas" a "papas fritas") y rechazar falsos positivos.
@@ -16,7 +16,7 @@ Desarrollado por **Benjamín Rivera Araneda** como proyecto aplicativo para la c
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Stack Tecnológico
 
 * **Backend:** Laravel (PHP)
 * **Frontend:** Blade Templates, Tailwind CSS, Vite (Node.js)
@@ -25,7 +25,7 @@ Desarrollado por **Benjamín Rivera Araneda** como proyecto aplicativo para la c
 
 ---
 
-## 📋 Requisitos Previos
+## Requisitos Previos
 
 Asegúrate de tener instalados los siguientes componentes en tu entorno local (el sistema está optimizado para su ejecución y desarrollo continuo tanto en entornos **Windows** como en distribuciones Linux como **Fedora**):
 
@@ -38,7 +38,7 @@ Asegúrate de tener instalados los siguientes componentes en tu entorno local (e
 
 ---
 
-## ⚙️ Instalación y Configuración Local
+## Instalación y Configuración Local
 
 **1. Clonar el repositorio**
 ```bash
@@ -96,7 +96,7 @@ El sistema estará disponible en `http://127.0.0.1:8000`.
 
 ---
 
-## 💡 Uso Básico
+## Uso Básico
 
 1.  **Iniciar Sesión:** Accede con las credenciales creadas por el seeder (por defecto, correo: `vendedor@fruna.cl` / clave: `password123`).
 2.  **Realizar una Venta:** Desde el Dashboard, haz clic en **Iniciar Venta por Voz**. Concede permisos de micrófono al navegador.
@@ -108,5 +108,5 @@ El sistema estará disponible en `http://127.0.0.1:8000`.
 ## 🛑 Posibles Problemas y Soluciones
 
 * **Error 419 (Page Expired) en Login:** Asegúrate de acceder al sistema escribiendo exactamente `http://127.0.0.1:8000` en tu navegador para que coincida con tu `APP_URL`, y ejecuta `php artisan optimize:clear`.
-* **Lentitud en la transcripción de voz:** En equipos portátiles como el Lenovo Ideapad 5, el uso prolongado y concurrente de motores de compilación (Node) y APIs del navegador puede causar estrangulamiento térmico (*thermal throttling*). Si detectas retraso en el dictado, verifica el Administrador de Tareas. Cierra pestañas redundantes, finaliza procesos "fantasma" de Node.js o recarga el navegador de forma limpia.
-* **Problemas de despliegue en Vercel:** Este proyecto utiliza arquitectura Backend pura (PHP). No está diseñado para ser desplegado como una aplicación estática en plataformas exclusivas de Node.js sin adaptadores especiales. Se recomienda la ejecución local para demostraciones técnicas o la migración a servidores nativos para PHP.
+* **Lentitud en la transcripción de voz:** En algunosequipos portátiles el uso prolongado y concurrente de motores de compilación (Node) y APIs del navegador puede causar estrangulamiento térmico (*thermal throttling*). Si detectas retraso en el dictado, verifica el Administrador de Tareas. Cierra pestañas redundantes, finaliza procesos "fantasma" de Node.js o recarga el navegador de forma limpia.
+* **Problemas con el microfono ("Iniciar Escucha"):** El sistema utiliza la Web Speech API para transcribir el audio en tiempo real. Debido a que esta tecnología depende de motores de procesamiento en la nube, navegadores como Opera, Brave o Firefox suelen bloquearla por políticas de privacidad o falta de soporte nativo. Para garantizar el funcionamiento del módulo de voz, es estrictamente necesario utilizar **Google Chrome** o **Microsoft Edge**.
