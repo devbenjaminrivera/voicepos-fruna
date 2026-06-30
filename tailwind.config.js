@@ -11,8 +11,16 @@ export default {
 
     theme: {
         extend: {
+            colors: {
+                fruna: {
+                    yellow: '#FFDE59', // Amarillo corporativo brillante
+                    red: '#E10600',    // Rojo Fruna
+                    darkred: '#B00000', // Rojo oscuro para gradientes/hovers
+                    light: '#FEF08A'   // Amarillo claro para fondos de acento
+                }
+            },
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ['Outfit', ...defaultTheme.fontFamily.sans],
             },
         },
     },

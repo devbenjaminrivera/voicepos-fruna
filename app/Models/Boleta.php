@@ -9,7 +9,7 @@ class Boleta extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['empresa_id', 'vendedor_id', 'fecha_emision', 'total'];
+    protected $fillable = ['empresa_id', 'vendedor_id', 'total'];
 
     public function empresa()
     {

@@ -7,29 +7,35 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/turbolinks/5.2.0/turbolinks.js" data-turbolinks-eval="false"></script>
         
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
+    <body class="font-sans antialiased bg-gray-50">
+        <div class="flex h-screen overflow-hidden bg-gray-50">
+            <!-- Sidebar -->
             @include('layouts.navigation')
 
-            
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
+            <!-- Content Area -->
+            <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+                
+                @isset($header)
+                    <header class="sticky top-0 z-40 bg-white/70 backdrop-blur-md border-b border-gray-200 shadow-sm">
+                        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                            {{ $header }}
+                        </div>
+                    </header>
+                @endisset
 
-            
-            <main>
-                {{ $slot }}
-            </main>
+                
+                <main class="flex-1 w-full w-full">
+                    {{ $slot }}
+                </main>
+            </div>
         </div>
     </body>
 </html>

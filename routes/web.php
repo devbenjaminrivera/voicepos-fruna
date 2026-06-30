@@ -3,6 +3,8 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\BoletaController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProductoController;
 
 
 Route::get('/', function () {
@@ -10,13 +12,14 @@ Route::get('/', function () {
 });
 
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 
 Route::middleware('auth')->group(function () {
     
+    Route::resource('productos', ProductoController::class);
     
     Route::get('/boletas', [BoletaController::class, 'index'])->name('boletas.index');
     Route::get('/boletas/create', [BoletaController::class, 'create'])->name('boletas.create');

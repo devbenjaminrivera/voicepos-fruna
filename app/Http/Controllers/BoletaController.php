@@ -12,13 +12,31 @@ use Illuminate\Support\Facades\DB;
 class BoletaController extends Controller
 {
     
-    public function index()
+    public function index(Request $request)
     {
-    
-        $boletas = Boleta::with(['empresa', 'productos'])
-                         ->where('vendedor_id', Auth::id())
-                         ->orderBy('created_at', 'desc')
-                         ->get();
+        $query = Boleta::with(['empresa', 'productos'])
+                       ->where('vendedor_id', Auth::id());
+
+        // Búsqueda por ID o Empresa
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('id', $search);
+                } else {
+                    $q->whereHas('empresa', function($q2) use ($search) {
+                        $q2->where('nombre', 'like', "%{$search}%");
+                    });
+                }
+            });
+        }
+
+        // Filtro Hoy
+        if ($request->input('filter') === 'hoy') {
+            $query->whereDate('created_at', \Carbon\Carbon::today());
+        }
+
+        $boletas = $query->orderBy('id', 'desc')->get();
 
         return view('boletas.index', compact('boletas'));
     }
@@ -26,24 +44,59 @@ class BoletaController extends Controller
     
     public function create()
     {
-        return view('boletas.create');
+        $empresa = \App\Models\Empresa::first();
+        $productos = \App\Models\Producto::all();
+        return view('boletas.create', compact('empresa', 'productos'));
     }
 
     
     public function store(Request $request)
     {
-        
         $request->validate([
             'texto_dictado' => 'required|string',
             'empresa_id' => 'required|exists:empresas,id'
         ]);
 
-        
-        $textoRecibido = strtolower($request->texto_dictado);
+        $resultado = $this->procesarTextoAPedido($request->texto_dictado);
+
+        try {
+            DB::beginTransaction();
+
+            $boleta = Boleta::create([
+                'empresa_id' => $request->empresa_id,
+                'vendedor_id' => Auth::id(),
+                'total' => $resultado['total']
+            ]);
+
+            foreach ($resultado['productos'] as $prod) {
+                $boleta->productos()->attach($prod['id'], [
+                    'cantidad' => $prod['cantidad'],
+                    'subtotal' => $prod['subtotal']
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Boleta generada con éxito.',
+                'boleta_id' => $boleta->id
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error al guardar boleta: ' . $e->getMessage());
+            return response()->json(['success' => false, 'error' => 'Hubo un problema interno al guardar la boleta. Contacte a soporte.'], 500);
+        }
+    }
+
+    private function procesarTextoAPedido($textoDictado)
+    {
+        $textoRecibido = strtolower(trim($textoDictado));
+        $textoRecibido = preg_replace('/[^a-zñáéíóú0-9\s]/i', ' ', $textoRecibido);
         $textoRecibido = str_replace('aparte', '', $textoRecibido);
         $textoRecibido = str_replace(['.', ',', ';'], ' ', $textoRecibido);
 
-        
         $mapaNumeros = [
             '/\b(un|una|uno)\b/' => '1',
             '/\b(dos)\b/' => '2',
@@ -58,77 +111,74 @@ class BoletaController extends Controller
         ];
         $textoRecibido = preg_replace(array_keys($mapaNumeros), array_values($mapaNumeros), $textoRecibido);
 
-
         preg_match_all('/(\d+)\s*([a-zñáéíóú\s]+?)(?=\s*\d|$)/i', $textoRecibido, $matches);
 
         $itemsDictados = [];
         for ($i = 0; $i < count($matches[0]); $i++) {
             $itemsDictados[] = [
                 'cantidad' => (int) $matches[1][$i],
-                'palabra' => trim($matches[2][$i]) // quita espacios sobrantes
+                'palabra' => trim($matches[2][$i])
             ];
         }
 
-        try {
-            DB::beginTransaction();
+        $productosDetectados = [];
+        $totalCalculado = 0;
+        $productosDB = Producto::all();
 
-            // Creación de la boleta inicial con total 0
-            $boleta = Boleta::create([
-                'empresa_id' => $request->empresa_id,
-                'vendedor_id' => Auth::id(),
-                'total' => 0 
-            ]);
+        foreach ($itemsDictados as $item) {
+            if (empty($item['palabra'])) continue;
 
-            $totalCalculado = 0;
-            $productosDB = Producto::all();
+            $mejorCoincidencia = null;
+            $mayorSimilitud = 0; 
 
-            // 4. Lógica de Similitud Porcentual 
-            foreach ($itemsDictados as $item) {
-                if (empty($item['palabra'])) continue;
+            foreach ($productosDB as $producto) {
+                $palabraDictadaLimpia = preg_replace('/[^a-zñáéíóú]/i', '', $item['palabra']);
+                $nombreBDLimpio = preg_replace('/[^a-zñáéíóú]/i', '', strtolower($producto->nombre));
 
-                $mejorCoincidencia = null;
-                $mayorSimilitud = 0; 
-
-                foreach ($productosDB as $producto) {
-                    $palabraDictadaLimpia = str_replace(' ', '', $item['palabra']);
-                    $nombreBDLimpio = strtolower(str_replace(' ', '', $producto->nombre));
-
-                    
+                if (str_contains($palabraDictadaLimpia, $nombreBDLimpio)) {
+                    $porcentaje = 100;
+                } else {
                     similar_text($palabraDictadaLimpia, $nombreBDLimpio, $porcentaje);
-                    
-                    if ($porcentaje > $mayorSimilitud) {
-                        $mayorSimilitud = $porcentaje;
-                        $mejorCoincidencia = $producto;
-                    }
                 }
-
                 
-                if ($mejorCoincidencia && $mayorSimilitud >= 75) {
-                    $subtotal = $mejorCoincidencia->precio_unitario * $item['cantidad'];
-                    $totalCalculado += $subtotal;
-
-                    $boleta->productos()->attach($mejorCoincidencia->id, [
-                        'cantidad' => $item['cantidad'],
-                        'subtotal' => $subtotal
-                    ]);
+                if ($porcentaje > $mayorSimilitud) {
+                    $mayorSimilitud = $porcentaje;
+                    $mejorCoincidencia = $producto;
                 }
             }
 
-            
-            $boleta->update(['total' => $totalCalculado]);
+            if ($mayorSimilitud >= 65 && $mejorCoincidencia) {
+                $subtotal = $mejorCoincidencia->precio_unitario * $item['cantidad'];
+                
+                // Agrupar si ya detectamos el mismo producto en esta sesión
+                $encontrado = false;
+                foreach($productosDetectados as &$pd) {
+                    if($pd['id'] == $mejorCoincidencia->id) {
+                        $pd['cantidad'] += $item['cantidad'];
+                        $pd['subtotal'] += $subtotal;
+                        $encontrado = true;
+                        break;
+                    }
+                }
 
-            DB::commit();
-
-            return response()->json([
-                'success' => true, 
-                'message' => 'Boleta generada con éxito.',
-                'boleta_id' => $boleta->id
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+                if(!$encontrado) {
+                    $productosDetectados[] = [
+                        'id' => $mejorCoincidencia->id,
+                        'nombre' => $mejorCoincidencia->nombre,
+                        'precio_unitario' => $mejorCoincidencia->precio_unitario,
+                        'cantidad' => $item['cantidad'],
+                        'subtotal' => $subtotal
+                    ];
+                }
+                
+                $totalCalculado += $subtotal;
+            }
         }
+
+        return [
+            'productos' => $productosDetectados,
+            'total' => $totalCalculado
+        ];
     }
     
     public function downloadTxt(Boleta $boleta)
